@@ -1,28 +1,222 @@
-import React, { useState } from "react";
-
-export default function BookingFormArabic({ onBook }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [date, setDate] = useState("");
-
-  const handleSubmit = e => {
-    e.preventDefault();
-    onBook({ name, phone, date });
-    setName(""); setPhone(""); setDate("");
-  };
-
-  return (
-    <form onSubmit={handleSubmit} style={{
-      maxWidth: "400px", margin: "40px auto", padding: "24px", background: "#fff", borderRadius: "10px", boxShadow: "0 2px 8px #eee", direction: "rtl"
-    }}>
-      <h2 style={{textAlign: "center", color:"#1976d2"}}>حجز موعد في عيادة د. بشير محمد طاهر</h2>
-      <label>الاسم الثلاثي:</label>
-      <input type="text" value={name} onChange={e => setName(e.target.value)} required style={{width:"100%",marginBottom:"10px"}} />
-      <label>رقم الجوال:</label>
-      <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required style={{width:"100%",marginBottom:"10px"}} />
-      <label>تاريخ ووقت الموعد:</label>
-      <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} required style={{width:"100%",marginBottom:"10px"}} />
-      <button type="submit" style={{width:"100%",background:"#1976d2",color:"#fff",padding:"10px",border:"none",borderRadius:"6px"}}>احجز الآن</button>
-    </form>
-  );
+PK   t99[�����7�7booking.html<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>عيادة الدكتور بشير محمد طاهر – نظام الحجز الإلكتروني</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600&display=swap');
+:root{--primary:#ec4899;--accent:#1e40af;--bg1:#fff5fb;--bg2:#e6f5ff;--muted:#64748b}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Cairo',Tahoma,Arial,sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#0f172a;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:18px auto;padding:14px}
+.header{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.95);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.05)}
+.header img{width:78px;height:78px;border-radius:10px;object-fit:cover}
+.hdrTxt h1{margin:0;font-size:20px;color:var(--primary)}.hdrTxt p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.04);margin-bottom:12px}
+label{display:block;margin:8px 0 6px;color:#374151;font-size:14px}
+.input,input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #e6eef8;font-size:14px}
+textarea{min-height:80px;resize:vertical}
+.button{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-secondary{background:#e2e8f0;color:#0f172a}
+.slots{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.slot{padding:8px 10px;border-radius:8px;border:1px solid #e6eef8;cursor:pointer}
+.slot.disabled{opacity:0.45;cursor:not-allowed}
+.slot.selected{outline:3px solid rgba(59,130,246,0.15);border-color:#60a5fa}
+.table{width:100%;border-collapse:collapse;margin-top:8px}
+.table th,.table td{padding:10px;border-bottom:1px solid #eef2f7;text-align:center;font-size:14px}
+.small{font-size:13px;color:var(--muted)}
+.printable-ticket{display:none}
+@media print{
+  body{background:#fff}
+  .wrap,.card,.header{display:none}
+  .printable-ticket{display:block;padding:40px;box-sizing:border-box;width:210mm;height:297mm}
+  .ticket-inner{max-width:170mm;margin:60mm auto;text-align:center;border:1px dashed #e6eef8;padding:18px;border-radius:8px}
+  .ticket-inner h1{font-size:26px;color:var(--primary);margin-bottom:10px}
+  .ticket-inner .code{font-size:40px;font-weight:800;color:#102a7a;margin:12px 0}
+  .ticket-inner p{font-size:18px;margin:6px 0}
 }
+.note{background:#fffbea;padding:10px;border-left:4px solid #f59e0b;margin:8px 0;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header card" id="headerCard">
+    <!-- صورة الدكتور (يمكن استبدال الرابط برابط صورتك على Google Drive بعد أن تكون عامة) -->
+    <img id="doctorPhoto" src="https://images.unsplash.com/photo-1607746882042-944635dfe10e?q=80&w=400&auto=format&fit=crop" alt="صورة الدكتور">
+    <div class="hdrTxt">
+      <h1>عيادة الدكتور بشير محمد طاهر</h1>
+      <p>نظام الحجز الإلكتروني</p>
+    </div>
+  </div>
+
+  <div id="mainArea"></div>
+
+  <div class="note small">البيانات تحفظ محلياً في المتصفح وكما تُرسل أيضاً إلى Google Sheet (نسخة احتياطية ومشاركة عبر Drive).</div>
+</div>
+
+<!-- printable ticket area -->
+<div id="printTicket" class="printable-ticket" aria-hidden="true"><div class="ticket-inner" id="ticketInner"></div></div>
+
+<!-- SheetJS for export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+/* --------------- الإعدادات الأساسية --------------- */
+const STORAGE_KEY = 'clinic_booking_with_gs_v1';
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby3qDtZLqJ9Ri_JQSZK-J6eTFiS3nzFlEu3llELw_FXVVkEfEJgDw9ZuC6LNSlDcOv3vw/exec";
+const ADMIN_USER = "ADMIN";
+const ADMIN_PASS = "12345";
+
+/* --------------- أدوات مساعدة --------------- */
+function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return {config:{workStart:'09:00',workEnd:'18:00',slotMinutes:10,maxPerDay:100}, bookings:[]}; try{return JSON.parse(raw);}catch(e){return {config:{workStart:'09:00',workEnd:'18:00',slotMinutes:10,maxPerDay:100}, bookings:[]}} }
+function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+function uid(len=6){ const a=new Uint8Array(len); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(36).padStart(2,'0')).join('').slice(0,len); }
+function genCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const arr=new Uint8Array(6); crypto.getRandomValues(arr); let p=''; for(let i=0;i<4;i++) p+=chars[arr[i]%chars.length]; const day=String(new Date().getDate()).padStart(2,'0'); const icons=['★','✿','❤','✧','⚕︎']; const icon=icons[arr[5]%icons.length]; return `${day}-${p}-${icon}`; }
+function parseTime(t){ const [hh,mm]=t.split(':').map(Number); return hh*60+mm; }
+function fmtTime(m){ const hh=Math.floor(m/60); const mm=m%60; return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+
+let state = loadState();
+if(!state.config) state.config = {workStart:'09:00', workEnd:'18:00', slotMinutes:10, maxPerDay:100};
+
+/* --------------- Google Sheets integration --------------- */
+function sendToGS(booking){
+  if(!GOOGLE_SCRIPT_URL) return Promise.reject('No GS URL');
+  return fetch(GOOGLE_SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      bookingId: booking.id,
+      name: (booking.nameParts||[]).join(' '),
+      phone: booking.phone,
+      date: booking.date,
+      time: booking.time,
+      notes: booking.notes||'',
+      status: booking.status||'confirmed',
+      createdAt: booking.createdAt
+    })
+  }).then(r=>r.json()).catch(e=>{ console.warn('GS post error', e); throw e; });
+}
+
+// try to GET list from GS (if Apps Script supports doGet returning JSON array)
+// this is best-effort; if it fails we'll continue using localStorage
+function fetchFromGS(){
+  if(!GOOGLE_SCRIPT_URL) return Promise.reject('No GS URL');
+  return fetch(GOOGLE_SCRIPT_URL + '?action=list').then(r=>{ if(!r.ok) throw new Error('no response'); return r.json(); }).then(data=>{
+    if(Array.isArray(data)){
+      state.bookings = data.map(d=>({ id: d.bookingId || uid(6), code: d.bookingId || genCode(), nameParts: d.name?d.name.split(' '):[], phone: d.phone||'', date: d.date||'', time: d.time||'', notes: d.notes||'', status: d.status||'confirmed', createdAt: d.createdAt||new Date().toISOString() }));
+      saveState(state);
+      return state.bookings;
+    }
+    throw new Error('unexpected data');
+  });
+}
+
+/* --------------- CRUD --------------- */
+function addBookingLocal(b){ state.bookings.push(b); saveState(state); }
+function addBooking(b){ addBookingLocal(b); sendToGS(b).then(res=>console.log('saved to GS',res)).catch(e=>console.warn('save to GS failed')); }
+
+function exportXLSX(rows, filename='bookings.xlsx'){ const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'حجوزات'); XLSX.writeFile(wb, filename); }
+
+/* --------------- UI --------------- */
+const main = document.getElementById('mainArea');
+function getRole(){ const p = new URLSearchParams(location.search); return p.get('role') || 'booker'; }
+function checkAdminLogin(){ if(getRole()==='admin'){ const u = prompt('اسم المستخدم:'); const p = prompt('كلمة المرور:'); if(u!==ADMIN_USER || p!==ADMIN_PASS){ alert('بيانات الدخول خاطئة'); window.location.href = location.pathname + '?role=booker'; return false; } } return true; }
+
+function render(){
+  fetchFromGS().catch(()=>{ console.log('fetchFromGS failed or not supported — using local data'); }).finally(()=>{
+    if(getRole()==='booker'){ document.getElementById('headerCard').style.display='flex'; renderBooker(); } else { if(!checkAdminLogin()) return; renderAdmin(); }
+  });
+}
+
+/* Booker's UI */
+function renderBooker(){
+  const today = new Date().toISOString().slice(0,10);
+  main.innerHTML = `
+    <div class="card">
+      <h2>حجز موعد لمراجعة الطبيب</h2>
+      <div class="small">الرجاء ملء الاسم الثلاثي ورقم الجوال ثم اختيار التاريخ والوقت المتاح.</div>
+      <label>الاسم الثلاثي</label><input id="uName" class="input" placeholder="مثال: سارة أحمد محمد">
+      <label>رقم الجوال</label><input id="uPhone" class="input" placeholder="05xxxxxxxx" maxlength="10">
+      <label>ملاحظات (اختياري)</label><textarea id="uNotes" class="input"></textarea>
+      <label>التاريخ</label><input id="uDate" type="date" class="input" value="${today}" min="${today}">
+      <label>الأوقات المتاحة</label><div id="slotsArea" class="slots"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="doBook" class="button btn-primary">حجز الآن</button>
+        <button id="clearForm" class="button btn-secondary">مسح</button>
+      </div>
+      <div id="bookResult" style="margin-top:12px"></div>
+    </div>
+  `;
+  refreshSlots();
+  document.getElementById('uDate').onchange = refreshSlots;
+  document.getElementById('clearForm').onclick = ()=>{ document.getElementById('uName').value=''; document.getElementById('uPhone').value=''; document.getElementById('uNotes').value=''; document.getElementById('bookResult').innerHTML=''; refreshSlots(); };
+  document.getElementById('doBook').onclick = ()=>{
+    const name = document.getElementById('uName').value.trim();
+    const phone = document.getElementById('uPhone').value.trim();
+    const notes = document.getElementById('uNotes').value.trim();
+    const date = document.getElementById('uDate').value;
+    const slotEl = document.querySelector('.slot.selected');
+    const time = slotEl ? slotEl.dataset.time : null;
+    if(!name || name.split(/\s+/).length<3){ alert('الاسم الثلاثي مطلوب'); return; }
+    if(!phone || !/^\d{8,10}$/.test(phone.replace(/^0+/,''))){ alert('رقم الجوال مطلوب وبحد أقصى 10 أرقام'); return; }
+    if(!date){ alert('اختر التاريخ'); return; }
+    if(!time){ alert('اختر وقتاً متاحاً'); return; }
+    if(!isSlotAvailable(date,time)){ alert('هذه الشريحة لم تعد متاحة'); refreshSlots(); return; }
+    const booking = { id: Date.now().toString(), code: genCode(), nameParts: name.split(/\s+/).slice(0,3), phone, date, time, notes, status:'confirmed', createdAt:new Date().toISOString() };
+    addBooking(booking);
+    showTicket(booking);
+    render();
+  };
+}
+
+function refreshSlots(){
+  const slotsArea = document.getElementById('slotsArea');
+  if(!slotsArea) return;
+  const date = document.getElementById('uDate').value;
+  const cfg = state.config;
+  const slots = getSlots(cfg);
+  const html = slots.map(s=>`<div class="slot ${isSlotAvailable(date,s)?'':'disabled'}" data-time="${s}">${s}${isSlotAvailable(date,s)?'':' (محجوز)'}</div>`).join('');
+  slotsArea.innerHTML = html;
+  slotsArea.querySelectorAll('.slot').forEach(el=>{ if(!el.classList.contains('disabled')) el.onclick = ()=>{ slotsArea.querySelectorAll('.slot').forEach(x=>x.classList.remove('selected')); el.classList.add('selected'); }; });
+}
+
+/* Admin UI */
+function renderAdmin(){
+  const cfg = state.config;
+  const today = (new Date()).toISOString().slice(0,10);
+  const rows = state.bookings.slice().sort((a,b)=>{ if(a.date===b.date) return a.time.localeCompare(b.time); return a.date.localeCompare(b.date); });
+  const tableRows = rows.map(b=>{
+    const name = (b.nameParts||[]).join(' ');
+    return `<tr><td>${name}</td><td>${b.phone||''}</td><td><span class="badge">${b.code}</span></td><td>${b.date||''}</td><td>${b.time||''}</td><td>${b.notes||''}</td><td>${b.status||''}</td><td><button onclick="printExisting('${b.id}')" class="button btn-primary">طباعة</button></td></tr>`;
+  }).join('');
+  main.innerHTML = `
+    <div class="card">
+      <h2>لوحة الإدارة</h2>
+      <div class="small">مجموع الحجوزات: <b>${state.bookings.length}</b> — حجوزات اليوم: <b>${bookingsForDate(today).length}</b></div>
+      <div style="margin-top:12px;overflow:auto"><table class="table"><thead><tr><th>الاسم</th><th>جوال</th><th>رمز</th><th>تاريخ</th><th>وقت</th><th>ملاحظات</th><th>الحالة</th><th>طباعة</th></tr></thead><tbody>${tableRows}</tbody></table></div>
+      <div style="margin-top:12px" class="small">لربط Google Sheet أو تعديل الرابط استخدم الكود في أعلى الملف.</div>
+    </div>
+  `;
+}
+
+/* helpers */
+function bookingsForDate(d){ return state.bookings.filter(b=>b.date===d && b.status!=='cancelled'); }
+function isSlotAvailable(date,time){ return !state.bookings.some(b=>b.date===date && b.time===time && b.status!=='cancelled'); }
+function getSlots(cfg){ const start=parseTime(cfg.workStart); const end=parseTime(cfg.workEnd); const slots=[]; for(let m=start;m+cfg.slotMinutes<=end && slots.length<cfg.maxPerDay; m+=cfg.slotMinutes) slots.push(fmtTime(m)); return slots; }
+
+function showTicket(b){ const inner = document.getElementById('ticketInner'); inner.innerHTML = `<h1>عيادة الدكتور بشير محمد طاهر</h1><p>تم تأكيد حجزك</p><div class="code">${b.code}</div><p><b>الاسم:</b> ${(b.nameParts||[]).join(' ')}</p><p><b>الجوال:</b> ${b.phone}</p><p><b>التاريخ والوقت:</b> ${b.date} ${b.time}</p><p>${b.notes||''}</p>`; document.getElementById('printTicket').style.display='block'; setTimeout(()=>{ window.print(); setTimeout(()=>{ document.getElementById('printTicket').style.display='none'; },400); },200); }
+function printExisting(id){ const b = state.bookings.find(x=>x.id===id); if(!b){ alert('الحجز غير موجود'); return; } showTicket(b); }
+
+function init(){ // initial sync attempt
+  fetchFromGS().catch(()=>console.log('no GS list')).finally(()=>{ state = loadState(); render(); });
+  window.printExisting = printExisting;
+}
+
+init();
+</script>
+</body>
+</html>PK     t99[�����7�7��booking.htmlPK  :
+8
+
